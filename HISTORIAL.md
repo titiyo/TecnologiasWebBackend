@@ -9,8 +9,9 @@
 
 - **Materia:** Tecnologías Web (TUARI/UNICEN)
 - **Proyecto:** API "Componentes" — componentes de PC agrupados por tipo de uso
-- **Repositorio backend:** https://github.com/titiyo/TecnologiasWeb (branch `main`)
-- **Repositorio frontend:** (a crear, separado del backend)
+- **Repositorio backend:** https://github.com/titiyo/TecnologiasWebBackend (branch `main`)
+- **Repositorio frontend:** `TecnologiasWebFrontend` (a crear, separado del backend). El repo del
+  backend se renombró de `TecnologiasWeb` a `TecnologiasWebBackend`; GitHub redirige el nombre viejo.
 - **Asistente de IA:** opencode con la skill `tp-tecnologias-web` (modelo DeepSeek Flash vía
   OpenRouter, `deepseek-flash-latest`, según el log exportado) para los pasos 1 a 12; Claude Code
   (con la misma skill) para los pasos 13 a 16.
@@ -524,6 +525,25 @@ los apuntes de estudio para la defensa oral, que quedaron fuera del repo.
   del uso, un largo máximo de nombre, y que `%` y `_` en `?nombre=` actúan como comodines. Para la
   parte 2: habilitar CORS (`app.enableCors()`) para que el frontend Angular pueda llamar a la API.
 
+### Paso 20 — Preparación del backend para la 2da entrega: CORS y skill 1.1.0 (hecho)
+
+- **Estado de la 2da entrega:** el repo `TecnologiasWebFrontend` está creado y vacío; el proyecto Angular
+  todavía no se generó.
+- **CORS:** el frontend corre en otro origen (`localhost:4200` o Netlify) y el navegador bloquea las
+  llamadas a una API que no lo permite. Se agregó `app.enableCors()` en `src/main.ts` (decisión del/la
+  estudiante: habilitarlo ahora). Se verificó con una petición con `Origin`, con el preflight `OPTIONS`
+  (responde 204 con `Access-Control-Allow-Methods` que incluye PATCH y DELETE) y con una respuesta 400
+  (también lleva el header, así el front puede leer el error). Postman, que no manda `Origin`, sigue
+  funcionando. Queda abierto a cualquier origen (`*`), algo aceptable para este TP; en un proyecto real
+  se restringiría al dominio del frontend.
+- **Skill:** el repo de la cátedra publicó la versión **1.1.0** (21/10/2026). Se actualizó `.opencode/`
+  y `AGENTS.md` copiando la versión oficial (quedó idéntica). Lo nuevo: sección "Frontend y deploy: lo
+  que suele fallar", checkpoints más estrictos y un chequeo final de la entrega 1 más completo. Se
+  revisó ese chequeo: `.env.example`, `docker-compose.yml` y README presentes, sin `node_modules/`,
+  `dist/` ni datos de la base en el repo, y los filtros inválidos (`?usoId=abc`) responden 400.
+- **Verificación:** build correcto y los 3 tests pasan; la base quedó igual que antes (5 usos y 8
+  componentes).
+
 ---
 
 ## Checklist de la consigna (1ra entrega)
@@ -539,7 +559,7 @@ los apuntes de estudio para la defensa oral, que quedaron fuera del repo.
 | Colección de Postman con todos los casos de uso, en el repo | ✅ `postman/` (31 requests, incluidos 400 / 404 / 409) |
 | Buenas prácticas (módulos/controllers/services, validaciones, errores y códigos HTTP) | ✅ 201 / 400 / 404 / 409 |
 | README | ✅ |
-| Repo de GitHub del backend | ✅ https://github.com/titiyo/TecnologiasWeb |
+| Repo de GitHub del backend | ✅ https://github.com/titiyo/TecnologiasWebBackend |
 
 **Entregables de la 1ra entrega:** repo del backend + colección Postman.
 
@@ -570,6 +590,9 @@ los apuntes de estudio para la defensa oral, que quedaron fuera del repo.
 | `b7d6b61` | Actualizar README e HISTORIAL con validaciones; quitar DEFENSA.md (paso 16) |
 | `4078c83` | Agregar documentación de entrega: resúmenes y logs (paso 17) |
 | `6a97dc1` | Subir logs completos de las sesiones, con excepción en `.gitignore` (paso 17) |
+| `6512bb4` | Validar campos no permitidos, rangos de ids y precio, body ausente y duplicados de uso (pasos 18 y 19) |
+| `106f79b` | Documentar pasos 18 y 19: errores encontrados y correcciones |
+| `e2ac60a` | Corregir nota sobre la consulta de la skill en el paso 19 |
 
 > **Nota:** los cambios de los pasos 4 (entidad/DTOs de `PcPrearmada`) y 7 (volumen `data/`)
 > quedaron agrupados dentro de otros commits, no tienen commit propio.
