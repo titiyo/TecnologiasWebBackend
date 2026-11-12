@@ -60,6 +60,9 @@ npm run start:dev
 
 La API queda en `http://localhost:3000`. Adminer (administrador de la DB) en `http://localhost:8080`.
 
+CORS está habilitado (`app.enableCors()` en `src/main.ts`), para que el frontend Angular, que corre
+en otro origen (`localhost:4200` o Netlify), pueda llamar a la API desde el navegador.
+
 Al iniciar, si la tabla de usos está vacía, se **siembran** 4 usos: Gaming, Oficina, Doméstico y Estudio.
 
 ## Variables de entorno
