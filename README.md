@@ -7,6 +7,18 @@ Backend del TP de **Tecnologías Web** (TUARI/UNICEN). API REST en **NestJS** co
 - CRUD completo de ambas entidades + **filtrado** por uso y **búsqueda** por nombre.
 - Colección de Postman con todos los casos de uso incluida en `postman/`.
 
+## Deploy
+
+| Parte | URL |
+| ----- | --- |
+| API (Render) | https://tecnologiaswebbackend.onrender.com (ej. [`/usos`](https://tecnologiaswebbackend.onrender.com/usos)) |
+| Frontend (Netlify) | https://tecnologiaswebfrontend.netlify.app |
+
+En Render: Web Service con build `npm install && npm run build` y start `npm run start:prod`, más
+una base PostgreSQL de Render conectada por su Internal Database URL (variables `DB_*` cargadas en
+el panel Environment). El plan gratis "duerme" el servicio: la primera request puede tardar cerca
+de un minuto. Para probar la colección de Postman contra Render, cambiar la variable `baseUrl`.
+
 ## Tecnologías
 
 - NestJS + TypeScript
