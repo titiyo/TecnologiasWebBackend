@@ -63,12 +63,14 @@ erDiagram
 ## Decisiones tomadas (acordadas)
 
 - Base de datos: **PostgreSQL** (driver `pg`), `docker-compose` con **postgres + adminer**.
-- Conexión por **variables de entorno** (`process.env`) con valores por defecto en `app.module.ts`
-  (sin `@nestjs/config`): `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME`. Se agregó
-  `.env.example` (versionado) documentando las variables.
-- Validaciones **manuales** (sin `class-validator`): `ConflictException` para duplicados y
-  nombre vacío; `NotFoundException` para "no encontrado"; `BadRequestException` (400) para body
-  inválido, y `ParseIntPipe` (de Nest, sin librerías extra) para ids numéricos (ver paso 13).
+- Conexión por **variables de entorno** (`process.env`) en `app.module.ts` (sin `@nestjs/config`):
+  `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME`. Se agregó `.env.example` (versionado)
+  documentando las variables. *(Actualizado en el paso 21: la contraseña ya no tiene valor por defecto
+  en el código y sale solo del `.env`.)*
+- Validaciones: al principio **manuales** (`ConflictException` para duplicados, `NotFoundException`
+  para "no encontrado", `BadRequestException` para body inválido, `ParseIntPipe` para ids). *(Paso 21:
+  el body pasó a validarse con **`class-validator`** en los DTOs y un `ValidationPipe` global, a
+  sugerencia del profe; las reglas de negocio, 404 y 409 siguen con las excepciones de Nest.)*
 - Un **filtro sin resultados** (ej. `GET /componentes?usoId=999`) devuelve **200 con `[]`**, no 404
   (decisión del paso 13).
 - Puerto **3000**.
@@ -543,6 +545,44 @@ los apuntes de estudio para la defensa oral, que quedaron fuera del repo.
   `dist/` ni datos de la base en el repo, y los filtros inválidos (`?usoId=abc`) responden 400.
 - **Verificación:** build correcto y los 3 tests pasan; la base quedó igual que antes (5 usos y 8
   componentes).
+
+### Paso 21 — Devolución del profe: `class-validator` y contraseña fuera del código (hecho, en la rama `class-validator`)
+
+- **Devolución recibida:** los dos repos y los deploys están bien y no hay nada obligatorio para
+  corregir. Dos mejoras opcionales: (1) pasar las validaciones hechas a mano a `class-validator` en los
+  DTOs con `ValidationPipe` (o tener claro por qué se eligió hacerlo así) y (2) sacar de
+  `app.module.ts` la contraseña por defecto (`DB_PASSWORD ?? 'secret123!'`) y dejarla solo en el `.env`.
+- **Decisión del/la estudiante:** hacer lo que sugiere el profe en las dos. Se hizo en una **rama
+  aparte** (`class-validator`) para no tocar `main` (y por lo tanto el sitio desplegado en Render) hasta
+  probarlo, y se mezcla recién cuando todo pasa.
+- **Validación con `class-validator`:**
+  - Los DTOs tienen decoradores (`@IsString`, `@IsNotEmpty`, `@IsNumber`, `@Min`, `@Max`, `@IsInt`).
+    Los `UpdateDto` siguen usando `PartialType`, que conserva los decoradores.
+  - `PipeDeValidacion` (`src/common/validacion.ts`) extiende `ValidationPipe` con `whitelist` y
+    `forbidNonWhitelisted` (un campo que el DTO no declara, como `id` o `uso`, da 400), `transform` (para
+    recortar textos con `@Transform`) y `stopAtFirstError`. Un `exceptionFactory` mantiene los mensajes en
+    español y el formato (`message` como array). Se registra con `app.useGlobalPipes` en `main.ts`.
+  - Se eliminaron `validar()` del service de componentes y `validarCampos()` del controller de usos. Los
+    límites (`MAX_ID`, `MAX_PRECIO`) siguen en `src/common/limites.ts`.
+  - **Se mantuvo a mano** lo que no son decoradores: duplicados de uso (409), 404, el redondeo del precio
+    a 2 decimales y rechazar `null` en los PATCH (`PartialType` deja pasar `null`).
+  - Dependencias nuevas: `class-validator` 0.15.1 y `class-transformer` 0.5.1 (ambas CommonJS).
+- **Por qué antes se eligió validar a mano (para la defensa):** no sumar librerías si no hacían falta,
+  mantener las validaciones junto a las demás reglas (404 y 409) y ver cada paso. Lo que aporta
+  `class-validator`: las reglas quedan **declaradas en el DTO** (una sola fuente de verdad), se reutilizan
+  entre POST y PATCH, es el estándar de NestJS y deja el service y el controller sin chequeos repetidos.
+- **Contraseña:**
+  - `DB_PASSWORD` ya no tiene valor por defecto: si falta, la app no arranca y avisa cuál falta.
+  - El `.env` (ignorado por git) se carga con `process.loadEnvFile()` de Node, sin librerías nuevas, solo
+    si el archivo existe. En Render no hay `.env`: las variables vienen del panel Environment.
+  - `docker-compose.yml` toma `POSTGRES_PASSWORD` del mismo `.env`. `.env.example` quedó con un valor de
+    ejemplo. La clave anterior sigue en el historial de git (era solo de desarrollo local).
+- **Verificación:** 62 de 62 casos contra Postgres real (los de las pasadas anteriores más los nuevos),
+  ningún 500 en el log, los 3 tests pasan, la app avisa si falta `DB_PASSWORD`, arranca como en Render
+  (sin `.env` y con la variable cargada) y Docker Compose resuelve la contraseña desde el `.env`.
+- **Cambios visibles para el frontend:** los errores de `POST /usos` y `PATCH /usos` ahora llegan con
+  `message` como **array** (antes era un texto). El formato general `{ message, error, statusCode }` no
+  cambia.
 
 ---
 

@@ -23,6 +23,7 @@ de un minuto. Para probar la colección de Postman contra Render, cambiar la var
 
 - NestJS + TypeScript
 - TypeORM + PostgreSQL (`pg`)
+- `class-validator` y `class-transformer` (validación de los DTOs con `ValidationPipe`)
 - Docker / docker-compose (PostgreSQL + Adminer)
 
 ## Modelo de datos
@@ -63,10 +64,13 @@ erDiagram
 # 1. instalar dependencias
 npm install
 
-# 2. levantar PostgreSQL + Adminer
+# 2. crear el archivo .env (git lo ignora) y poner en DB_PASSWORD una clave propia
+cp .env.example .env
+
+# 3. levantar PostgreSQL + Adminer (usan la DB_PASSWORD del .env)
 docker compose up -d
 
-# 3. levantar la API en modo desarrollo
+# 4. levantar la API en modo desarrollo
 npm run start:dev
 ```
 
@@ -79,18 +83,23 @@ Al iniciar, si la tabla de usos está vacía, se **siembran** 4 usos: Gaming, Of
 
 ## Variables de entorno
 
-La conexión a la base se lee de variables de entorno, con valores por defecto para desarrollo local
-(ver `.env.example`). Sin `@nestjs/config`, un archivo `.env` **no se carga automáticamente**; en
-producción (Render) se configuran desde el panel del servicio.
+La conexión a la base se lee de variables de entorno (ver `.env.example`). **La contraseña no está
+escrita en el código**: `DB_PASSWORD` es obligatoria y, si falta, la app no arranca y avisa cuál falta.
 
-| Variable    | Default        |
-| ----------- | -------------- |
-| DB_HOST     | localhost      |
-| DB_PORT     | 5432           |
-| DB_USERNAME | postgres       |
-| DB_PASSWORD | secret123!     |
-| DB_NAME     | pc_prearmadas  |
-| PORT        | 3000           |
+- **En desarrollo:** las variables salen del archivo `.env`. La app lo carga al iniciar con
+  `process.loadEnvFile()` (función de Node, sin librerías) y Docker Compose lee el mismo archivo para
+  la contraseña del Postgres, así queda en un solo lugar. El `.env` está en el `.gitignore`.
+- **En producción (Render):** no hay `.env`; las variables se cargan en el panel Environment del
+  servicio.
+
+| Variable    | Default       |
+| ----------- | ------------- |
+| DB_HOST     | localhost     |
+| DB_PORT     | 5432          |
+| DB_USERNAME | postgres      |
+| DB_PASSWORD | **(obligatoria, sin valor por defecto)** |
+| DB_NAME     | pc_prearmadas |
+| PORT        | 3000          |
 
 ## Endpoints
 
@@ -121,20 +130,26 @@ El filtro y la búsqueda se pueden **combinar**: `/componentes?usoId=1&nombre=ry
 
 ## Validaciones y códigos de estado
 
-Las validaciones se hacen a mano (sin `class-validator`), con las excepciones de NestJS.
+El body de los POST y PATCH se valida con **`class-validator`**: cada DTO tiene decoradores
+(`@IsString`, `@IsNotEmpty`, `@IsNumber`, `@Min`, `@Max`, `@IsInt`) y un `ValidationPipe` global
+(`src/common/validacion.ts`, registrado en `main.ts`) los aplica. El pipe rechaza con 400 cualquier campo
+que el DTO no declare (`whitelist` + `forbidNonWhitelisted`) y recorta los textos (`class-transformer`).
+Los ids de la ruta usan `ParseIntPipe`, y las reglas de negocio (duplicados, 404, 409) siguen en el
+controller y el service con las excepciones de NestJS.
 
 | Código | Cuándo |
 | ------ | ------ |
 | 200 | Consulta, edición o borrado correctos. Un filtro sin resultados (ej. `?usoId=999`) también devuelve 200 con `[]` |
 | 201 | Alta correcta de un uso o de un componente |
-| 400 | Body inválido (campos faltantes, vacíos —incluido el nombre vacío de un uso en POST y PATCH—, `precio` negativo o mayor a 99999999.99, `usoId` no entero, o un body ausente), un campo no permitido en el body de un POST o PATCH (solo se aceptan `nombre`, `tipo`, `marca`, `precio` y `usoId` en componentes, y `nombre` en usos; por ejemplo un `id`, que pisaría un registro existente, o un objeto `uso`), o un `id` / `usoId` que no es un número (`ParseIntPipe`). En un componente se devuelven **todos** los errores juntos |
+| 400 | Body inválido (campos faltantes, vacíos —incluido el nombre vacío de un uso en POST y PATCH—, `precio` negativo o mayor a 99999999.99, `usoId` no entero, o un body ausente), un campo no permitido en el body de un POST o PATCH (solo se aceptan `nombre`, `tipo`, `marca`, `precio` y `usoId` en componentes, y `nombre` en usos; por ejemplo un `id`, que pisaría un registro existente, o un objeto `uso`), o un `id` / `usoId` que no es un número (`ParseIntPipe`). Los errores de validación se devuelven **todos juntos** en `message`, que es un array de textos |
 | 404 | El uso o el componente no existe (también al crear/editar un componente con un `usoId` inexistente, o con un id mayor al máximo de un entero de Postgres, 2147483647) |
 | 409 | Conflicto con algo que ya existe: uso con nombre duplicado (se compara sin distinguir mayúsculas ni espacios; el nombre se guarda recortado), o borrar un uso que tiene componentes |
 
 Notas: `GET /componentes?usoId=0` (o un `usoId` fuera de rango) devuelve `[]`, y el `precio` se
 redondea a 2 decimales antes de guardar, para que la respuesta coincida con lo que queda en la base.
 
-En `PATCH /componentes/:id` solo se validan los campos que vienen en el body (actualización parcial).
+En `PATCH` solo se validan los campos que vienen en el body (actualización parcial): los `UpdateDto`
+usan `PartialType`, que conserva los decoradores y vuelve opcionales los campos.
 
 ## Colección de Postman
 
