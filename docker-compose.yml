@@ -5,7 +5,8 @@ services:
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: secret123!
+      # Sale del archivo .env (Docker Compose lo lee solo); si falta, avisa y no arranca.
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en el archivo .env}
       POSTGRES_DB: pc_prearmadas
     volumes:
       - ./data:/var/lib/postgresql/data

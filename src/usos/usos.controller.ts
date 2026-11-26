@@ -24,37 +24,11 @@ export class UsosController {
     return nombre.trim().toLowerCase();
   }
 
-  // Solo se acepta "nombre". Un id en el body haría que save() pise un uso existente.
-  private validarCampos(dto: unknown) {
-    // Sin body (o sin Content-Type) Nest entrega undefined, y un array o un texto tampoco sirven.
-    if (!dto || typeof dto !== 'object' || Array.isArray(dto)) {
-      throw new BadRequestException('el body debe ser un objeto JSON');
-    }
-    const errores: string[] = [];
-    for (const campo of Object.keys(dto)) {
-      if (campo === 'id') {
-        errores.push('el id no se puede enviar en el body');
-      } else if (campo !== 'nombre') {
-        errores.push(`campo no permitido: ${campo}`);
-      }
-    }
-    if (errores.length > 0) {
-      throw new BadRequestException(errores);
-    }
-  }
-
+  // El body ya llega validado por el ValidationPipe global (ver CreateUsoDto): nombre es un texto
+  // no vacío y ya viene recortado. Acá solo queda la regla de negocio: que no esté repetido.
   @Post()
   async create(@Body() createUsoDto: CreateUsoDto) {
-    this.validarCampos(createUsoDto);
-    if (
-      typeof createUsoDto.nombre !== 'string' ||
-      createUsoDto.nombre.trim() === ''
-    ) {
-      throw new BadRequestException(
-        'nombre es obligatorio y debe ser un texto no vacío',
-      );
-    }
-    const nombre = createUsoDto.nombre.trim();
+    const nombre = createUsoDto.nombre;
     const usos = await this.usosService.findAll();
     const existingUso = usos.find(
       (uso) => this.normalizar(uso.nombre) === this.normalizar(nombre),
@@ -62,7 +36,7 @@ export class UsosController {
     if (existingUso) {
       throw new ConflictException(`El uso con nombre "${nombre}" ya existe.`);
     }
-    return this.usosService.create({ ...createUsoDto, nombre });
+    return this.usosService.create(createUsoDto);
   }
 
   @Get()
@@ -80,16 +54,12 @@ export class UsosController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUsoDto: UpdateUsoDto,
   ) {
-    this.validarCampos(updateUsoDto);
-    let dto = updateUsoDto;
+    // PartialType deja que el campo falte, pero también deja pasar un null: acá no tiene sentido.
+    if ((updateUsoDto.nombre as unknown) === null) {
+      throw new BadRequestException('nombre no puede ser null');
+    }
     if (updateUsoDto.nombre !== undefined) {
-      if (
-        typeof updateUsoDto.nombre !== 'string' ||
-        updateUsoDto.nombre.trim() === ''
-      ) {
-        throw new BadRequestException('nombre debe ser un texto no vacío');
-      }
-      const nombre = updateUsoDto.nombre.trim();
+      const nombre = updateUsoDto.nombre;
       const usos = await this.usosService.findAll();
       const existingUso = usos.find(
         (uso) =>
@@ -99,9 +69,8 @@ export class UsosController {
       if (existingUso) {
         throw new ConflictException(`El uso con nombre "${nombre}" ya existe.`);
       }
-      dto = { ...updateUsoDto, nombre };
     }
-    return this.usosService.update(id, dto);
+    return this.usosService.update(id, updateUsoDto);
   }
 
   @Delete(':id')
